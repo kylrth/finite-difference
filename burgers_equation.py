@@ -74,27 +74,25 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
 
 
 if __name__ == '__main__':
-    # Try the perturbed system from the lab
-    u_minus = 5
-    u_plus = 1
-    s = (u_minus + u_plus) / 2
-    a = (u_minus - u_plus) / 2
-    u_hat = lambda x: s - a * np.tanh(a * x / 2)
+    # Try tanh
+    u_0 = lambda x: np.ones_like(x)
 
-    v = lambda x: 3.5 * (np.sin(3 * x) + 1) / np.sqrt(2 * np.pi) * np.exp(x ** 2 / -2)
+    # v = lambda x: 3.5 * (np.sin(3 * x) + 1) / np.sqrt(2 * np.pi) * np.exp(x ** 2 / -2)
 
-    a = -20
-    b = 20
+    a = -1
+    b = 1
     T = 1
     N_x = 151
     N_t = 351
-    u_0 = lambda x: u_hat(x) + v(x)
-    c_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
-    d_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
-    h_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
-    c_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
-    d_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
-    h_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    left_val = np.tanh(a) + 1 / (np.cosh(a) ** 2)
+    right_val = np.tanh(b) + 1 / (np.cosh(b) ** 2)
+    u_0 = lambda x: np.tanh(x)
+    c_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    d_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    h_a = lambda t: np.ones_like(t) * left_val if type(t) == np.ndarray else left_val
+    c_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    d_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    h_b = lambda t: np.ones_like(t) * right_val if type(t) == np.ndarray else right_val
 
     x = np.linspace(a, b, N_x)
     Us = burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b)
@@ -103,9 +101,9 @@ if __name__ == '__main__':
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xlim((x[0], x[-1]))
-    ax.set_ylim((0, 6))
+    ax.set_ylim((-1, 1))
 
-    plt.plot(x, u_hat(x))
+    plt.plot(x, u_0(x))
 
     traj, = plt.plot([], [], color='r', alpha=0.5)
 
