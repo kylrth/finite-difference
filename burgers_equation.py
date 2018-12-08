@@ -12,8 +12,17 @@ from scipy.optimize import fsolve
 # something).
 
 def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
-    """The nonlinear implicit Crank-Nicholson equations for 
-    the transformed Burgers' equation.
+    """The nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation.
+
+    vec = [
+        h h_aj - (h c_aj - d_aj) U1[0] - d_aj U1[1]
+        (U1[1]-U0[1]) - K1[-U1[1](U1[2]-U1[0]) - U0[1](U0[2]-U0[0])] - K2[(U1[2]-2*U1[1]+U1[0]) + (U0[2]-2*U0[1]+U0[0])]
+        `-.
+        (U1[k]-U0[k]) - K1[-U1[k](U1[k+1]-U1[k-1]) - U0[k](U0[k+1]-U0[k-1])] - K2[(U1[k+1]-2*U1[k]+U1[k-1]) + (U0[k+1]-2*U0[k]+U0[k-1])]
+        `-.
+        (U1[-2]-U0[-2]) - K1[-U1[-2](U1[-1]-U1[-3]) - U0[-2](U0[-1]-U0[-3])] - K2[(U1[-1]-2*U1[-2]+U1[-3]) + (U0[-1]-2*U0[-2]+U0[-3])]
+        h h_bj - (h c_bj + d_bj) U1[-1] - d_bj U1[-2]
+    ]
     
     Parameters
         U1 (ndarray): The values of U^(n+1)
@@ -38,6 +47,34 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     
     # We want to require the interior according to the finite difference method, and the boundary conditions separately.
     return np.concatenate(([h * h_aj - a_condition], lhs - rhs, [h * h_bj - b_condition]))
+
+
+def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
+    """The Jacobian of the nonlinear Crank-Nicholson equations for the Burgers' equation.
+           _                                                                                _
+          | (-h c_aj + d_aj)  (-d_aj)               0                0             0  ...  0 |
+          | (K1 U1[1] - K2)   (K1 (U1[0] - U1[2]))  (K1 U1[1] - K2)  0             0  ...  0 |
+    jac = | 0  ...  0          `-.                   `-.             `-.           0  ...  0 |
+          | 0  ...  0  (K1 U1[k] - K2)  (K1 (U1[k-1] - U1[k+1]))  (K1 U1[k] - K2)  0  ...  0 |
+          | 0  ...  0          `-.                   `-.             `-.         `-.  ...  0 |
+          | 0  ...            ...          ...           ...    (-d_bj) ... (-h c_bj - d_bj) |
+           --                                                                              --
+    
+    Parameters
+        U1 (ndarray): The values of U^(n+1)
+        U0 (ndarray): The values of U^n
+        s (float): wave speed
+        K1 (float): first constant in the equations
+        K2 (float): second constant in the equations
+        TODO: add more parameter descriptions
+    
+    Returns
+        out (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
+                       boundary conditions.
+    """
+    jac = np.zeros((len(U0), len(U0)))
+
+    # fill the main diagonal with the 
 
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
@@ -85,8 +122,6 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
 if __name__ == '__main__':
     # Try tanh
     u_0 = lambda x: np.ones_like(x)
-
-    # v = lambda x: 3.5 * (np.sin(3 * x) + 1) / np.sqrt(2 * np.pi) * np.exp(x ** 2 / -2)
 
     a = -1
     b = 1
