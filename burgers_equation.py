@@ -80,7 +80,7 @@ def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     jac[-1, -1] = -d_bj - h * c_bj
 
     # fill the left off-diagonal
-    jac[1:-1, :-2] = jac[1:-1, :-2] + np.diag(-K1 * U[1:-1] - K2)
+    jac[1:-1, :-2] = jac[1:-1, :-2] + np.diag(-K1 * U1[1:-1] - K2)
     jac[-1, -2] = -d_bj
 
     # fill the right off-diagonal
@@ -88,6 +88,44 @@ def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     jac[0, 1] = -d_aj
 
     return jac
+
+
+def newton(f, x0, Df, tol=1e-5, maxiters=30, alpha=1., args=()):
+    """Use Newton's method to approximate a zero of the function f.
+
+    Parameters:
+        f (lambda): a function from R^n to R^n (assume n=1 until Problem 5).
+        x0 (float or ndarray): The initial guess for the zero of f.
+        Df (lambda): The derivative of f, a function from R^n to R^(n*n).
+        tol (float): Convergence tolerance. The function should returns when
+            the difference between successive approximations is less than tol.
+        maxiters (int): The maximum number of iterations to compute.
+        alpha (float): Backtracking scalar (Problem 3).
+
+    Returns:
+        (float or ndarray): The approximation for a zero of f.
+        (bool): Whether or not Newton's method converged.
+        (int): The number of iterations computed.
+    """
+    i = 0
+    if np.isscalar(x0):
+        while i < maxiters:
+            fut = x0 - alpha * f(x0, *args) / Df(x0, *args)
+            i += 1
+            if abs(fut - x0) < tol:
+                return fut, True, i
+            else:
+                x0 = fut
+        return x0, False, i
+    else:
+        while i < maxiters:
+            fut = x0 - alpha * np.linalg.solve(Df(x0, *args), f(x0, *args))
+            i += 1
+            if np.linalg.norm(fut - x0) < tol:
+                return fut, True, i
+            else:
+                x0 = fut
+        return x0, False, i
 
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
@@ -127,7 +165,15 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
     Us = [f_x0]
     
     for j in range(1, N_t):
-        Us.append(fsolve(conditions, Us[-1], args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])))
+        result, converged, _ = newton(conditions,
+                                      Us[-1],
+                                      conditions_jac,
+                                      args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])
+                                     )
+        if not converged:
+            print('warning: Newton\'s method did not converge')
+        Us.append(result)
+        # Us.append(fsolve(conditions, Us[-1], args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])))
     
     return np.array(Us)
 
