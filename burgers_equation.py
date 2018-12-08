@@ -84,15 +84,13 @@ if __name__ == '__main__':
     T = 1
     N_x = 151
     N_t = 351
-    left_val = np.tanh(a) + 1 / (np.cosh(a) ** 2)
-    right_val = np.tanh(b) + 1 / (np.cosh(b) ** 2)
-    u_0 = lambda x: np.tanh(x)
+    u_0 = lambda x: 1 - np.tanh(x / 2)
     c_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
     d_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
-    h_a = lambda t: np.ones_like(t) * left_val if type(t) == np.ndarray else left_val
+    h_a = lambda t: 1 - np.tanh((a - t) / 2) - 1 / 2 / (np.cosh((a - t) / 2) ** 2)
     c_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
     d_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
-    h_b = lambda t: np.ones_like(t) * right_val if type(t) == np.ndarray else right_val
+    h_b = lambda t: 1 - np.tanh((b - t) / 2) - 1 / 2 / (np.cosh((b - t) / 2) ** 2)
 
     x = np.linspace(a, b, N_x)
     Us = burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b)
@@ -101,9 +99,13 @@ if __name__ == '__main__':
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xlim((x[0], x[-1]))
-    ax.set_ylim((-1, 1))
+    ax.set_ylim((-1, 4))
+
+    # correct solution at t=1
+    u_1 = lambda x: 1 - np.tanh((x - 1) / 2)
 
     plt.plot(x, u_0(x))
+    plt.plot(x, u_1(x))
 
     traj, = plt.plot([], [], color='r', alpha=0.5)
 
@@ -111,7 +113,7 @@ if __name__ == '__main__':
         traj.set_data(x, Us[i])
         return traj
 
-    plt.legend(['$\hat u$', '$u$'])
+    plt.legend(['$u(x,0)$', '$u(x,1)$', '$u$'])
     ani = animation.FuncAnimation(fig, update, frames=range(len(Us)), interval=25)
     ani.save('test.mp4')
     plt.close()
