@@ -14,7 +14,7 @@ from scipy.optimize import fsolve
 def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     """The nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation.
 
-    vec = [
+    out = [
         h h_aj - (h c_aj - d_aj) U1[0] - d_aj U1[1]
         (U1[1]-U0[1]) - K1[-U1[1](U1[2]-U1[0]) - U0[1](U0[2]-U0[0])] - K2[(U1[2]-2*U1[1]+U1[0]) + (U0[2]-2*U0[1]+U0[0])]
         `-.
@@ -69,12 +69,25 @@ def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
         TODO: add more parameter descriptions
     
     Returns
-        out (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
+        jac (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
                        boundary conditions.
     """
     jac = np.zeros((len(U0), len(U0)))
 
-    # fill the main diagonal with the 
+    # fill the main diagonal
+    jac[1:-1, 1:-1] = np.diag(1 + K1 * (U1[2:] - U1[:-2]) + 2 * K2)
+    jac[0, 0] = d_aj - h * c_aj
+    jac[-1, -1] = -d_bj - h * c_bj
+
+    # fill the left off-diagonal
+    jac[1:-1, :-2] = jac[1:-1, :-2] + np.diag(-K1 * U[1:-1] - K2)
+    jac[-1, -2] = -d_bj
+
+    # fill the right off-diagonal
+    jac[1:-1, 2:] = jac[1:-1, 2:] + np.diag(K1 * U1[1:-1] - K2)
+    jac[0, 1] = -d_aj
+
+    return jac
 
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
