@@ -21,13 +21,14 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
         s (float): wave speed
         K1 (float): first constant in the equations
         K2 (float): second constant in the equations
+        TODO: add more parameter descriptions
     
     Returns
         out (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
                        boundary conditions.
     """
     lhs = U1[1:-1] - U0[1:-1]
-    K1_term = K1 * ((-U1[1:-1]) * (U1[2:] - U1[:-2]) + (-U0[1:-1]) * (U0[2:] - U0[:-2]))
+    K1_term = K1 * (-U1[1:-1] * (U1[2:] - U1[:-2]) - U0[1:-1] * (U0[2:] - U0[:-2]))
     K2_term = K2 * (U1[2:] - 2 * U1[1:-1] + U1[:-2] + U0[2:] - 2 * U0[1:-1] + U0[:-2])
     rhs = K1_term + K2_term
 
@@ -35,20 +36,28 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     a_condition = (h * c_aj - d_aj) * U1[0] + d_aj * U1[1]
     b_condition = (h * c_bj + d_bj) * U1[-1] - d_bj * U1[-2]
     
-    # We want to zero the difference between the first and last element of each successive U,
-    # in addition to the requirement imposed on the interior.
+    # We want to require the interior according to the finite difference method, and the boundary conditions separately.
     return np.concatenate(([h * h_aj - a_condition], lhs - rhs, [h * h_bj - b_condition]))
 
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
+    """Takes parameters for the system described in the spec. TODO: flesh out docstring
     """
-    """
+    if a >= b:
+        raise ValueError('a must be less than b')
+    if T < 0:
+        raise ValueError('T must be greater than or equal to zero')
+    if N_x <= 0:
+        raise ValueError('N_x must be greater than zero')
+    if N_t <= 0:
+        raise ValueError('N_t must be greater than zero')
+    
     h = (b - a) / (N_x - 1)
     
     x = np.linspace(a, b, N_x)
     t = np.linspace(0, T, N_t)
     
-    # evaluate the boundary condition functions along x or t
+    # evaluate the boundary condition functions along t
     H_a = h_a(t)
     C_a = c_a(t)
     D_a = d_a(t)
