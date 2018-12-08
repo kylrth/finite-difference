@@ -1,41 +1,49 @@
 # Crank-Nicholson (implicit) finite difference method for Burger's equation.
-# Code written by Kyle Roth. Implicit finite difference method derived by Kyle Roth, Michael Nelson, and Jason Gardiner.
-# 2018-12-04
+# Code written by Kyle Roth. Implicit finite difference method derived by Kyle Roth, Michael Nelson, Jason Gardiner, and
+# Jared Nielsen. 2018-12-04
 
 import numpy as np
 from scipy import linalg as la
 from matplotlib import pyplot as plt
 from matplotlib import animation
-from scipy.optimize import fsolve
 
 # TODO: Turn this into a more general implicit finite difference solver that accepts A and B as arguments (or
 # something).
 
 def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
-    """The nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation.
+    """The nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation, derived using forward
+    difference approximations for u_x and center difference for u_xx. Boundary conditions were derived similarly.
 
     out = [
         h h_aj - (h c_aj - d_aj) U1[0] - d_aj U1[1]
         (U1[1]-U0[1]) - K1[-U1[1](U1[2]-U1[0]) - U0[1](U0[2]-U0[0])] - K2[(U1[2]-2*U1[1]+U1[0]) + (U0[2]-2*U0[1]+U0[0])]
         `-.
-        (U1[k]-U0[k]) - K1[-U1[k](U1[k+1]-U1[k-1]) - U0[k](U0[k+1]-U0[k-1])] - K2[(U1[k+1]-2*U1[k]+U1[k-1]) + (U0[k+1]-2*U0[k]+U0[k-1])]
+        (U1[k]-U0[k]) - K1[-U1[k](U1[k+1]-U1[k-1]) - U0[k](U0[k+1]-U0[k-1])]  # cont'd
+                - K2[(U1[k+1]-2*U1[k]+U1[k-1]) + (U0[k+1]-2*U0[k]+U0[k-1])]
         `-.
-        (U1[-2]-U0[-2]) - K1[-U1[-2](U1[-1]-U1[-3]) - U0[-2](U0[-1]-U0[-3])] - K2[(U1[-1]-2*U1[-2]+U1[-3]) + (U0[-1]-2*U0[-2]+U0[-3])]
+        (U1[-2]-U0[-2]) - K1[-U1[-2](U1[-1]-U1[-3]) - U0[-2](U0[-1]-U0[-3])]  # cont'd
+                - K2[(U1[-1]-2*U1[-2]+U1[-3]) + (U0[-1]-2*U0[-2]+U0[-3])]
         h h_bj - (h c_bj + d_bj) U1[-1] - d_bj U1[-2]
     ]
     
     Parameters
         U1 (ndarray): The values of U^(n+1)
         U0 (ndarray): The values of U^n
-        s (float): wave speed
         K1 (float): first constant in the equations
         K2 (float): second constant in the equations
-        TODO: add more parameter descriptions
+        h (float): spatial difference constant, usually (b - a) / num_x_steps
+        h_aj (float): h_a evaluated at this time step
+        c_aj (float): c_a evaluated at this time step
+        d_aj (float): d_a evaluated at this time step
+        h_bj (float): h_b evaluated at this time step
+        c_bj (float): c_b evaluated at this time step
+        d_bj (float): d_b evaluated at this time step
     
     Returns
         out (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
                        boundary conditions.
     """
+    # compute Crank-Nicolson conditions on interior
     lhs = U1[1:-1] - U0[1:-1]
     K1_term = K1 * (-U1[1:-1] * (U1[2:] - U1[:-2]) - U0[1:-1] * (U0[2:] - U0[:-2]))
     K2_term = K2 * (U1[2:] - 2 * U1[1:-1] + U1[:-2] + U0[2:] - 2 * U0[1:-1] + U0[:-2])
@@ -63,10 +71,15 @@ def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     Parameters
         U1 (ndarray): The values of U^(n+1)
         U0 (ndarray): The values of U^n
-        s (float): wave speed
         K1 (float): first constant in the equations
         K2 (float): second constant in the equations
-        TODO: add more parameter descriptions
+        h (float): spatial difference constant, usually (b - a) / num_x_steps
+        h_aj (float): h_a evaluated at this time step
+        c_aj (float): c_a evaluated at this time step
+        d_aj (float): d_a evaluated at this time step
+        h_bj (float): h_b evaluated at this time step
+        c_bj (float): c_b evaluated at this time step
+        d_bj (float): d_b evaluated at this time step
     
     Returns
         jac (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
@@ -97,8 +110,8 @@ def newton(f, x0, Df, tol=1e-5, maxiters=30, alpha=1., args=()):
         f (lambda): a function from R^n to R^n (assume n=1 until Problem 5).
         x0 (float or ndarray): The initial guess for the zero of f.
         Df (lambda): The derivative of f, a function from R^n to R^(n*n).
-        tol (float): Convergence tolerance. The function should returns when
-            the difference between successive approximations is less than tol.
+        tol (float): Convergence tolerance. The function should return when the difference between successive
+                     approximations is less than tol.
         maxiters (int): The maximum number of iterations to compute.
         alpha (float): Backtracking scalar (Problem 3).
 
@@ -129,15 +142,38 @@ def newton(f, x0, Df, tol=1e-5, maxiters=30, alpha=1., args=()):
 
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
-    """Takes parameters for the system described in the spec. TODO: flesh out docstring
+    """Crank-Nicolson approximation of the solution u(x, t) for the following system:
+
+        u_t + (u ** 2 / 2)_x = u_xx,   a <= x <= b, 0 < t <= T
+            u(x, 0) = u_0(x),
+            h_a(t) = c_a(t) * u(a, t) + d_a(t) * u_x(a, t),
+            h_b(t) = c_b(t) * u(b, t) + d_b(t) * u_x(b, t).
+
+    Parameters:
+        a (float): left spatial endpoint
+        b (float): right spatial endpoint
+        T (float): final time value
+        N_x (int): number of mesh nodes in the spatial dimension
+        N_t (int): number of mesh nodes in the temporal dimension
+        u_0 (callable): function specifying the initial condition
+        c_a (callable): function specifying left boundary condition
+        d_a (callable): function specifying left boundary condition
+        h_a (callable): function specifying left boundary condition
+        c_b (callable): function specifying right boundary condition
+        d_b (callable): function specifying right boundary condition
+        h_b (callable): function specifying right boundary condition
+    
+    Returns:
+        Us (np.ndarray): finite difference approximation of u(x,t). Us[j] = u(x,t_j), where j is the index corresponding
+                         to time t_j.
     """
     if a >= b:
         raise ValueError('a must be less than b')
-    if T < 0:
+    if T <= 0:
         raise ValueError('T must be greater than or equal to zero')
-    if N_x <= 0:
+    if N_x <= 2:
         raise ValueError('N_x must be greater than zero')
-    if N_t <= 0:
+    if N_t <= 1:
         raise ValueError('N_t must be greater than zero')
     
     h = (b - a) / (N_x - 1)
@@ -173,15 +209,25 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
         if not converged:
             print('warning: Newton\'s method did not converge')
         Us.append(result)
-        # Us.append(fsolve(conditions, Us[-1], args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])))
+
+        # Use the following code instead of the above to solve using scipy.optimize.fsolve
+        # from scipy.optimize import fsolve
+        # Us.append(fsolve(conditions,
+        #                  Us[-1],
+        #                  args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])))
     
     return np.array(Us)
 
 
-if __name__ == '__main__':
-    # Try tanh
-    u_0 = lambda x: np.ones_like(x)
+def test_burgers_equation():
+    """With initial condition u_0(x) = 1 - tanh(x / 2) and boundary conditions specified by
 
+           c_a(t) = 1, d_a(t) = 1, h_a(t) = 1 - tanh((a - t) / 2) - 0.5 * sech^2((a - t) / 2),
+           c_b(t) = 1, d_b(t) = 1, and h_b(t) = 1 - tanh((b - t) / 2) - 0.5 * sech^2((b - t) / 2),
+
+       the solution is u(x, t)= 1 - tanh((x - t) / 2). We test `burgers_equation` using this fact. The correct result is
+       displayed as an animation in test_burgers_equation.mp4.
+    """
     a = -1
     b = 1
     T = 1
@@ -202,7 +248,7 @@ if __name__ == '__main__':
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xlim((x[0], x[-1]))
-    ax.set_ylim((-1, 4))
+    ax.set_ylim((0, 3))
 
     # correct solution at t=1
     u_1 = lambda x: 1 - np.tanh((x - 1) / 2)
@@ -216,7 +262,11 @@ if __name__ == '__main__':
         traj.set_data(x, Us[i])
         return traj
 
-    plt.legend(['$u(x,0)$', '$u(x,1)$', '$u$'])
+    plt.legend(['theoretical $u(x,0)$', 'theoretical $u(x,1)$', 'approximated $u(x,t)$'])
     ani = animation.FuncAnimation(fig, update, frames=range(len(Us)), interval=25)
-    ani.save('test.mp4')
+    ani.save('test_burgers_equation.mp4')
     plt.close()
+
+
+if __name__ == '__main__':
+    test_burgers_equation()
