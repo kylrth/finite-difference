@@ -11,7 +11,9 @@ from matplotlib import animation
 # something).
 
 def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
-    """The nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation, derived using forward
+    """Return the conditions for Burgers' equation.
+    
+    Returns nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation, derived using forward
     difference approximations for u_x and center difference for u_xx. Boundary conditions were derived similarly.
 
     out = [
@@ -58,7 +60,9 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
 
 
 def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
-    """The Jacobian of the nonlinear Crank-Nicholson equations for the Burgers' equation.
+    """Returns the Jacobian of the conditions for Burgers' equation.
+    
+    Returns the Jacobian of the nonlinear Crank-Nicholson equations for the Burgers' equation:
            _                                                                                _
           | (-h c_aj + d_aj)  (-d_aj)               0                0             0  ...  0 |
           | (K1 U1[1] - K2)   (K1 (U1[0] - U1[2]))  (K1 U1[1] - K2)  0             0  ...  0 |
@@ -142,7 +146,9 @@ def newton(f, x0, Df, tol=1e-5, maxiters=30, alpha=1., args=()):
 
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
-    """Crank-Nicolson approximation of the solution u(x, t) for the following system:
+    """Returns a solution to Burgers' equation.
+    
+    Returns a Crank-Nicolson approximation of the solution u(x, t) for the following system:
 
         u_t + (u ** 2 / 2)_x = u_xx,   a <= x <= b, 0 < t <= T
             u(x, 0) = u_0(x),
@@ -222,11 +228,11 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
 def test_burgers_equation():
     """With initial condition u_0(x) = 1 - tanh(x / 2) and boundary conditions specified by
 
-           c_a(t) = 1, d_a(t) = 1, h_a(t) = 1 - tanh((a - t) / 2) - 0.5 * sech^2((a - t) / 2),
-           c_b(t) = 1, d_b(t) = 1, and h_b(t) = 1 - tanh((b - t) / 2) - 0.5 * sech^2((b - t) / 2),
+        c_a(t) = 1, d_a(t) = 1, h_a(t) = 1 - tanh((a - t) / 2) - 0.5 * sech^2((a - t) / 2),
+        c_b(t) = 1, d_b(t) = 1, and h_b(t) = 1 - tanh((b - t) / 2) - 0.5 * sech^2((b - t) / 2),
 
-       the solution is u(x, t)= 1 - tanh((x - t) / 2). We test `burgers_equation` using this fact. The correct result is
-       displayed as an animation in test_burgers_equation.mp4.
+    the solution is u(x, t)= 1 - tanh((x - t) / 2). We test `burgers_equation` using this fact. The correct result is
+    displayed as an animation in test_burgers_equation.mp4.
     """
     a = -1
     b = 1
