@@ -70,3 +70,64 @@ def heat_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
         yous.append(la.solve(B, np.concatenate(([h * H_a[j]], temp, [h * H_b[j]]))))
     
     return np.array(yous)
+
+
+def test_heat_flow():
+    # Test should produce np.exp(-t) * np.sin(x) as a solution
+    actual = lambda x, t: np.exp(-t) * np.sin(x)
+
+    def heat_eq_actual(a, b, T, N_x, N_t, func):
+        
+        delx = (b-a)/(N_x-1)
+        delt = T/(N_t-1)
+        
+        # this is a specific solution for testing purposes
+        U = np.zeros((N_t,N_x))
+        
+        for j in range(0,N_t):
+            t = j*delt
+            for k in range(0,N_x):
+                x= k*delx
+                U[j,k] = func(x,t)
+
+        return U
+
+    # boundary condition functions
+    h_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    c_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    d_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+
+    h_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    c_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    d_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+
+    u_0 = lambda x: np.sin(x)
+
+    # conditions
+    a = 0
+    b = np.pi
+    T = 1.0
+    N_x = 30
+    N_t = 10
+
+    soln = heat_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b)
+
+    x = np.linspace(a, b, N_x)
+
+    plt.plot(x, soln[0] + 0.01, label='approx[0]')
+    plt.plot(x, soln[5] + 0.01, label='approx[5]')
+    plt.plot(x, soln[9] + 0.01, label='approx[9]')
+
+    actual_U = heat_eq_actual(a, b, T, N_x, N_t, actual)
+
+    plt.plot(x, actual_U[0], label='actual[0]')
+    plt.plot(x, actual_U[5], label='actual[5]')
+    plt.plot(x, actual_U[9], label='actual[9]')
+
+    plt.legend()
+
+    plt.show()
+
+
+if __name__ == '__main__':
+    test_heat_flow()
