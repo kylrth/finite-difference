@@ -198,18 +198,24 @@ def wildfire_model(a, b, T, N_x, N_t,  # constants
                          ))
     STs = np.array(STs)
     print(STs.shape)
-    print(np.split(np.array(STs), 2, axis=1).shape)
-    return np.split(np.array(STs), 2, axis=1)
+    Ts, Ss = np.split(np.array(STs), 2, axis=1)
+    print(Ts.shape, Ss.shape)
+    return Ts, Ss
 
 
 def test_wildfire_model():
-    """With initial condition u_0(x) = 1 - tanh(x / 2) and boundary conditions specified by
+    """With initial conditions
+    
+        T_0(x) = 1 - tanh(x / 2)  # not true
+        S_0(x) = 1
+    
+    and boundary conditions specified by
 
-           c_a(t) = 1, d_a(t) = 1, h_a(t) = 1 - tanh((a - t) / 2) - 0.5 * sech^2((a - t) / 2),
-           c_b(t) = 1, d_b(t) = 1, and h_b(t) = 1 - tanh((b - t) / 2) - 0.5 * sech^2((b - t) / 2),
+        c_a(t) = 1, d_a(t) = 1, h_a(t) = 1 - tanh((a - t) / 2) - 0.5 * sech^2((a - t) / 2),  # not true
+        c_b(t) = 1, d_b(t) = 1, and h_b(t) = 1 - tanh((b - t) / 2) - 0.5 * sech^2((b - t) / 2),  # not true
 
-       the solution is u(x, t)= 1 - tanh((x - t) / 2). We test `burgers_equation` using this fact. The correct result is
-       displayed as an animation in test_burgers_equation.mp4.
+    the solution is u(x, t)= 1 - tanh((x - t) / 2)  # not true. We test `burgers_equation` using this fact. The correct result is
+    displayed as an animation in test_burgers_equation.mp4.
     """
     a = -1
     b = 1
@@ -252,4 +258,4 @@ def test_wildfire_model():
 
 
 if __name__ == '__main__':
-    test_burgers_equation()
+    test_wildfire_model()
