@@ -20,14 +20,11 @@ def heat_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
 
     More explanation coming soon.
     """
-    h = (b - a) / (N_x - 1)
-    k = T / (N_t - 1)
+    x, delx = np.linspace(a, b, N_x, retstep=True)
+    t, delt = np.linspace(0, T, N_t, retstep=True)
     
-    lamby = k / h / h / 2
-    
-    x = np.linspace(a, b, N_x)
-    t = np.linspace(0, T, N_t + 1)
-    
+    lamby = delt / delx / delx / 2
+
     # evaluate the boundary condition functions along x or t
     H_a = h_a(x)
     H_b = h_b(x)
@@ -58,39 +55,33 @@ def heat_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
     
     for j in range(1, N_t):
         # modify B to leave boundary conditions intact
-        B[0, 0] = h * C_a[j] - D_a[j]
+        B[0, 0] = delx * C_a[j] - D_a[j]
         B[0, 1] = D_a[j]
-        B[-1, -1] = h * C_b[j] + D_b[j]
+        B[-1, -1] = delx * C_b[j] + D_b[j]
         B[-1, -2] = -D_b[j]
         
         # calculate the right hand side
         temp = np.dot(A, yous[-1][1:-1])
         
         # solve for U^{j+1} on the left after concatenating the right hand side
-        yous.append(la.solve(B, np.concatenate(([h * H_a[j]], temp, [h * H_b[j]]))))
+        yous.append(la.solve(B, np.concatenate(([delx * H_a[j]], temp, [delx * H_b[j]]))))
     
     return np.array(yous)
 
 
 def test_heat_flow():
     # Test should produce np.exp(-t) * np.sin(x) as a solution
+    """Tests against the analytic solutions for various parameters.
+    
+    With initial condition u_0(x) = sin(x) and boundary conditions specified by
+
+        c_a(t) = 1, d_a(t) = 0, h_a(t) = 0,
+        c_b(t) = 1, d_b(t) = 0, and h_b(t) = 0,
+
+    the solution is u(x, t) = exp(-t) * sin(x). We test `burgers_equation` using this fact. The correct result is
+    displayed as an animation in test_heat_flow.mp4.
+    """
     actual = lambda x, t: np.exp(-t) * np.sin(x)
-
-    def heat_eq_actual(a, b, T, N_x, N_t, func):
-        
-        delx = (b-a)/(N_x-1)
-        delt = T/(N_t-1)
-        
-        # this is a specific solution for testing purposes
-        U = np.zeros((N_t,N_x))
-        
-        for j in range(0,N_t):
-            t = j*delt
-            for k in range(0,N_x):
-                x= k*delx
-                U[j,k] = func(x,t)
-
-        return U
 
     # boundary condition functions
     h_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
@@ -108,25 +99,25 @@ def test_heat_flow():
     b = np.pi
     T = 1.0
     N_x = 30
-    N_t = 10
+    N_t = 11
 
     soln = heat_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b)
 
     x = np.linspace(a, b, N_x)
 
-    plt.plot(x, soln[0] + 0.01, label='approx[0]')
-    plt.plot(x, soln[5] + 0.01, label='approx[5]')
-    plt.plot(x, soln[9] + 0.01, label='approx[9]')
+    plt.plot(x, soln[0], label='approx(x, 0)')
+    plt.plot(x, soln[5], label='approx(x, 0.5)')
+    plt.plot(x, soln[9], label='approx(x, 0.9)')
 
-    actual_U = heat_eq_actual(a, b, T, N_x, N_t, actual)
+    # actual_U = heat_eq_actual(a, b, T, N_x, N_t, actual)
 
-    plt.plot(x, actual_U[0], label='actual[0]')
-    plt.plot(x, actual_U[5], label='actual[5]')
-    plt.plot(x, actual_U[9], label='actual[9]')
+    plt.plot(x, actual(x, 0), label='actual(x, 0)')
+    plt.plot(x, actual(x, 0.5), label='actual(x, 0.5)')
+    plt.plot(x, actual(x, 0.9), label='actual(x, 0.9)')
 
     plt.legend()
-
-    plt.show()
+    plt.savefig('test_heat_flow.png')
+    plt.close()
 
 
 if __name__ == '__main__':

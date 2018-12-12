@@ -182,10 +182,8 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
     if N_t <= 1:
         raise ValueError('N_t must be greater than zero')
     
-    h = (b - a) / (N_x - 1)
-    
-    x = np.linspace(a, b, N_x)
-    t = np.linspace(0, T, N_t)
+    x, delx = np.linspace(a, b, N_x, retstep=True)
+    t, delt = np.linspace(0, T, N_t, retstep=True)
     
     # evaluate the boundary condition functions along t
     H_a = h_a(t)
@@ -198,8 +196,6 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
     # evaluate the initial condition function
     f_x0 = u_0(x)
 
-    delt = T / (N_t - 1)
-    delx = (b - a) / (N_x - 1)
     K1 = delt / 4 / delx
     K2 = delt / 2 / delx / delx
     
@@ -210,7 +206,7 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
         result, converged, _ = newton(conditions,
                                       Us[-1],
                                       conditions_jac,
-                                      args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])
+                                      args=(Us[-1], K1, K2, delx, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])
                                      )
         if not converged:
             print('warning: Newton\'s method did not converge')
