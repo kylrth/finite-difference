@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 from matplotlib import animation
 from scipy.optimize import fsolve
 
-def conditions(ST1, ST0,  # vectors
+def conditions(TS1, TS0,  # vectors
                K1, K2, h, k, A, B, C1, C2,  # constants
                hT_aj, cT_aj, dT_aj, hT_bj, cT_bj, dT_bj, hS_aj, cS_aj, dS_aj, hS_bj, cS_bj, dS_bj):  # functions
     """Return the conditions for the wildfire model.
@@ -37,8 +37,8 @@ def conditions(ST1, ST0,  # vectors
     ]
     
     Parameters
-        ST1 (ndarray): The values of S^{n+1} and T^{n+1}
-        ST0 (ndarray): The values of S^n and T^n
+        TS1 (ndarray): The values of T^{n+1} and S^{n+1}
+        TS0 (ndarray): The values of T^n and S^n
         K1 (float): first constant in the equations
         K2 (float): second constant in the equations
         h (float): spatial difference constant, usually (b - a) / num_x_steps
@@ -63,35 +63,38 @@ def conditions(ST1, ST0,  # vectors
     Returns
         (ndarray): The residuals (differences between right- and left-hand sides) of the conditions.
     """
-    T0, S0 = np.split(ST0, 2)
-    T1, S1 = np.split(ST1, 2)
+    T0, S0 = np.split(TS0, 2)
+    T1, S1 = np.split(TS1, 2)
 
-    # compute Crank-Nicolson conditions on interior for T
-    T_lhs = T1[1:-1] - T0[1:-1]
-    K1_term = K1 * (T1[2:] - T1[1:-1] + T1[:-2] + T0[2:] - T0[1:-1] + T0[:-2])
-    K2_term = K2 * (T1[2:] - T1[:-2] + T0[2:] - T0[:-2])
-    T_rhs = K1_term - K2_term + A(S1[1:-1] * np.exp(-B / T1[1:-1]) - C1 * T1[1:-1])
-
-    # calculate boundary conditions for T
-    Ta_condition = (h * cT_aj - dT_aj) * T1[0] + dT_aj * T1[1]
-    Tb_condition = (h * cT_bj + dT_bj) * T1[-1] - dT_bj * T1[-2]
+    # commonly used term, computed beforehand to save time
+    SeBT = S1[1:-1] * np.exp(-B / T1[1:-1])
 
     # compute Crank-Nicolson conditions on interior for S
     S_lhs = S1[1:-1] - S0[1:-1]  # S1[k] - S0[k] = -k * C2 * S1[k] * exp(-B / T1[k]))
-    S_rhs = -k * C2 * S1[1:-1] * np.exp(-B / T1[1:-1])
+    S_rhs = -k * C2 * SeBT
 
     # calculate boundary conditions for S
     Sa_condition = (h * cS_aj - dS_aj) * S1[0] + dS_aj * S1[1]
     Sb_condition = (h * cS_bj + dS_bj) * S1[-1] - dS_bj * S1[-2]
 
+    # compute Crank-Nicolson conditions on interior for T
+    T_lhs = T1[1:-1] - T0[1:-1]
+    K1_term = K1 * (T1[2:] - 2 * T1[1:-1] + T1[:-2] + T0[2:] - 2 * T0[1:-1] + T0[:-2])
+    K2_term = K2 * (T1[2:] - T1[:-2] + T0[2:] - T0[:-2])
+    T_rhs = K1_term - K2_term + k * A * (SeBT - C1 * T1[1:-1])
+
+    # calculate boundary conditions for T
+    Ta_condition = (h * cT_aj - dT_aj) * T1[0] + dT_aj * T1[1]
+    Tb_condition = (h * cT_bj + dT_bj) * T1[-1] - dT_bj * T1[-2]
+
     # return the complete set of conditions for S and T
     return np.concatenate((
-        [h * hT_aj - Ta_condition],  # T boundary condition at a
-        T_lhs - T_rhs,               # T interior conditions
-        [h * hT_bj - Tb_condition],  # T boundary condition at b
         [h * hS_aj - Sa_condition],  # S boundary condition at a
         S_lhs - S_rhs,               # S interior conditions
-        [h * hS_bj - Sb_condition]   # S boundary condition at b
+        [h * hS_bj - Sb_condition],   # S boundary condition at b
+        [h * hT_aj - Ta_condition],  # T boundary condition at a
+        T_lhs - T_rhs,               # T interior conditions
+        [h * hT_bj - Tb_condition]  # T boundary condition at b
         ))
 
 
@@ -155,10 +158,8 @@ def wildfire_model(a, b, T, N_x, N_t,  # constants
     if N_t <= 1:
         raise ValueError('N_t must be greater than zero')
     
-    h = (b - a) / (N_x - 1)
-    
-    x = np.linspace(a, b, N_x)
-    t = np.linspace(0, T, N_t)
+    x, delx = np.linspace(a, b, N_x, retstep=True)
+    t, delt = np.linspace(0, T, N_t, retstep=True)
     
     # evaluate the boundary condition functions along t
     HT_a = hT_a(t)
@@ -176,84 +177,97 @@ def wildfire_model(a, b, T, N_x, N_t,  # constants
     DS_b = dS_b(t)
 
     # evaluate the initial condition functions
-    T_x0 = T_0(x)
     S_x0 = S_0(x)
+    T_x0 = T_0(x)
 
-    delt = T / (N_t - 1)
-    delx = (b - a) / (N_x - 1)
     K1 = delt / 2 / delx / delx
     K2 = delt * v / 4 / delx
     
     # combine the initial conditions for T and S into one vector
-    STs = [np.concatenate((T_x0, S_x0))]
+    TSs = [np.concatenate((T_x0, S_x0))]
     
     for j in range(1, N_t):
-        STs.append(fsolve(conditions,
-                          STs[-1],
-                          args=(STs[-1],
-                                K1, K2, h, k, A, B, C1, C2,
+        TSs.append(fsolve(conditions,
+                          TSs[-1],
+                          args=(TSs[-1],
+                                K1, K2, delx, delt, A, B, C1, C2,
                                 HT_a[j], CT_a[j], DT_a[j], HT_b[j], CT_b[j], DT_b[j],
                                 HS_a[j], CS_a[j], DS_a[j], HS_b[j], CS_b[j], DS_b[j]
                                )
                          ))
-    STs = np.array(STs)
-    print(STs.shape)
-    Ts, Ss = np.split(np.array(STs), 2, axis=1)
-    print(Ts.shape, Ss.shape)
+    TSs = np.array(TSs)
+    Ts, Ss = np.split(np.array(TSs), 2, axis=1)
     return Ts, Ss
 
 
 def test_wildfire_model():
     """With initial conditions
     
-        T_0(x) = 1 - tanh(x / 2)  # not true
-        S_0(x) = 1
+        T_0(x) = sech(x)
+        S_0(x) = tanh(x)
     
     and boundary conditions specified by
 
-        c_a(t) = 1, d_a(t) = 1, h_a(t) = 1 - tanh((a - t) / 2) - 0.5 * sech^2((a - t) / 2),  # not true
-        c_b(t) = 1, d_b(t) = 1, and h_b(t) = 1 - tanh((b - t) / 2) - 0.5 * sech^2((b - t) / 2),  # not true
+        cT_a(t) = 1, dT_a(t) = 0, hT_a(t) = T_0(a),
+        cT_b(t) = 1, dT_b(t) = 0, hT_b(t) = T_0(b),
+        cS_a(t) = 1, dS_a(t) = 0, hS_a(t) = S_0(a),
+        cS_b(t) = 1, dS_b(t) = 0, and hS_b(t) = S_0(b).
 
-    the solution is u(x, t)= 1 - tanh((x - t) / 2)  # not true. We test `burgers_equation` using this fact. The correct result is
-    displayed as an animation in test_burgers_equation.mp4.
+    the solution looks like a fire centered at zero that moves into the supply found in the positive x direction. We
+    test using this fact. The correct result is displayed as an animation in test_wildfire.mp4.
     """
-    a = -1
-    b = 1
-    T = 1
-    N_x = 151
-    N_t = 351
-    u_0 = lambda x: 1 - np.tanh(x / 2)
-    c_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
-    d_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
-    h_a = lambda t: 1 - np.tanh((a - t) / 2) - 1 / 2 / (np.cosh((a - t) / 2) ** 2)
-    c_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
-    d_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
-    h_b = lambda t: 1 - np.tanh((b - t) / 2) - 1 / 2 / (np.cosh((b - t) / 2) ** 2)
+    a = -10
+    b = 10
+    T = 1.0
+    N_x = 100
+    N_t = 100
+    T_0 = lambda x: 1 / np.cosh(x)
+    S_0 = lambda x: np.tanh(x)
+    cT_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    dT_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    hT_a = lambda t: T_0(a) * np.ones_like(t) if type(t) == np.ndarray else T_0(a)
+    cT_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    dT_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    hT_b = lambda t: T_0(b) * np.ones_like(t) if type(t) == np.ndarray else T_0(b)
+
+    cS_a = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    dS_a = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    hS_a = lambda t: S_0(a) * np.ones_like(t) if type(t) == np.ndarray else S_0(a)
+    cS_b = lambda t: np.ones_like(t) if type(t) == np.ndarray else 1
+    dS_b = lambda t: np.zeros_like(t) if type(t) == np.ndarray else 0
+    hS_b = lambda t: S_0(b) * np.ones_like(t) if type(t) == np.ndarray else S_0(b)
+
+
+    A = 1
+    B = 0.1
+    C1 = 1
+    C2 = 1
+    nu = 1
+
+    Ts, Ss = wildfire_model(a, b, T, N_x, N_t, T_0, S_0, cT_a, dT_a, hT_a, cT_b, dT_b, hT_b, cS_a, dS_a, hS_a, cS_b,
+                            dS_b, hS_b, A, B, C1, C2, nu)
 
     x = np.linspace(a, b, N_x)
-    Us = burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b)
 
     # animation
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    fig, ax = plt.subplots()
     ax.set_xlim((x[0], x[-1]))
-    ax.set_ylim((0, 3))
+    ax.set_ylim((0, 1.3))
 
-    # correct solution at t=1
-    u_1 = lambda x: 1 - np.tanh((x - 1) / 2)
+    ax.plot(x, S_0(x), 'g')
+    ax.plot(x, T_0(x), 'r')
 
-    plt.plot(x, u_0(x))
-    plt.plot(x, u_1(x))
-
-    traj, = plt.plot([], [], color='r', alpha=0.5)
+    trajS, = ax.plot([], [], 'g', alpha=0.5)
+    trajT, = ax.plot([], [], 'r', alpha=0.5)
 
     def update(i):
-        traj.set_data(x, Us[i])
-        return traj
+        trajS.set_data(x, Ss[i])
+        trajT.set_data(x, Ts[i])
+        return trajS, trajT
 
-    plt.legend(['theoretical $u(x,0)$', 'theoretical $u(x,1)$', 'approximated $u(x,t)$'])
-    ani = animation.FuncAnimation(fig, update, frames=range(len(Us)), interval=25)
-    ani.save('test_burgers_equation.mp4')
+    ax.legend(['$S(x,0)$', '$T(x,0)$', '$S(x,t)$', '$T(x,t)$'])
+    ani = animation.FuncAnimation(fig, update, frames=range(len(Ss)), interval=50)
+    ani.save('test_wildfire.mp4')
     plt.close()
 
 
