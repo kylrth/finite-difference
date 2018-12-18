@@ -80,7 +80,7 @@ def estimate_value(data, final_t, samples=1):
     return np.array(results)
 
 
-def test_estimate_mu_sigma():
+def test_black_scholes():
     """Read the data in ./stock_prices.txt, and run several iterations of Euler-Maruyama on the estimated mu and sigma.
     """
     data = np.array(read_csv('./stock_prices.txt', index_col=0, header=None)).reshape(-1)
@@ -123,4 +123,4 @@ def test_estimate_mu_sigma():
 
 
 if __name__ == '__main__':
-    test_estimate_mu_sigma()
+    test_black_scholes()
