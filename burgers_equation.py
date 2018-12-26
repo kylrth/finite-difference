@@ -1,9 +1,10 @@
-# Crank-Nicholson (implicit) finite difference method for Burger's equation.
-# Code written by Kyle Roth. Implicit finite difference method derived by Kyle Roth, Michael Nelson, Jason Gardiner, and
-# Jared Nielsen. 2018-12-04
+"""Crank-Nicholson (implicit) finite difference method for Burger's equation. Code written by Kyle Roth. Implicit finite
+difference method derived by Kyle Roth, Michael Nelson, Jason Gardiner, and Jared Nielsen.
+
+2018-12-04
+"""
 
 import numpy as np
-from scipy import linalg as la
 from matplotlib import pyplot as plt
 from matplotlib import animation
 
@@ -12,7 +13,7 @@ from matplotlib import animation
 
 def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     """Return the conditions for Burgers' equation.
-    
+
     Returns nonlinear implicit Crank-Nicholson equations for the transformed Burgers' equation, derived using forward
     difference approximations for u_x and center difference for u_xx. Boundary conditions were derived similarly.
 
@@ -27,7 +28,7 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
                 - K2[(U1[-1]-2*U1[-2]+U1[-3]) + (U0[-1]-2*U0[-2]+U0[-3])]
         h h_bj - (h c_bj + d_bj) U1[-1] - d_bj U1[-2]
     ]
-    
+
     Parameters
         U1 (ndarray): The values of U^(n+1)
         U0 (ndarray): The values of U^n
@@ -40,7 +41,7 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
         h_bj (float): h_b evaluated at this time step
         c_bj (float): c_b evaluated at this time step
         d_bj (float): d_b evaluated at this time step
-    
+
     Returns
         out (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
                        boundary conditions.
@@ -54,14 +55,14 @@ def conditions(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     # calculate boundary conditions
     a_condition = (h * c_aj - d_aj) * U1[0] + d_aj * U1[1]
     b_condition = (h * c_bj + d_bj) * U1[-1] - d_bj * U1[-2]
-    
+
     # We want to require the interior according to the finite difference method, and the boundary conditions separately.
     return np.concatenate(([h * h_aj - a_condition], lhs - rhs, [h * h_bj - b_condition]))
 
 
 def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
     """Returns the Jacobian of the conditions for Burgers' equation.
-    
+
     Returns the Jacobian of the nonlinear Crank-Nicholson equations for the Burgers' equation:
            _                                                                                _
           | (-h c_aj + d_aj)  (-d_aj)               0                0             0  ...  0 |
@@ -71,7 +72,7 @@ def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
           | 0  ...  0          `-.                   `-.             `-.         `-.  ...  0 |
           | 0  ...            ...          ...           ...    (-d_bj) ... (-h c_bj - d_bj) |
            --                                                                              --
-    
+
     Parameters
         U1 (ndarray): The values of U^(n+1)
         U0 (ndarray): The values of U^n
@@ -84,7 +85,7 @@ def conditions_jac(U1, U0, K1, K2, h, h_aj, c_aj, d_aj, h_bj, c_bj, d_bj):
         h_bj (float): h_b evaluated at this time step
         c_bj (float): c_b evaluated at this time step
         d_bj (float): d_b evaluated at this time step
-    
+
     Returns
         jac (ndarray): The residuals (differences between right- and left-hand sides) of the equation, accounting for
                        boundary conditions.
@@ -147,7 +148,7 @@ def newton(f, x0, Df, tol=1e-5, maxiters=30, alpha=1., args=()):
 
 def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
     """Returns a solution to Burgers' equation.
-    
+
     Returns a Crank-Nicolson approximation of the solution u(x, t) for the following system:
 
         u_t + (u ** 2 / 2)_x = u_xx,   a <= x <= b, 0 < t <= T
@@ -168,7 +169,7 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
         c_b (callable): function specifying right boundary condition
         d_b (callable): function specifying right boundary condition
         h_b (callable): function specifying right boundary condition
-    
+
     Returns:
         Us (np.ndarray): finite difference approximation of u(x,t). Us[j] = u(x,t_j), where j is the index corresponding
                          to time t_j.
@@ -181,10 +182,10 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
         raise ValueError('N_x must be greater than zero')
     if N_t <= 1:
         raise ValueError('N_t must be greater than zero')
-    
+
     x, delx = np.linspace(a, b, N_x, retstep=True)
     t, delt = np.linspace(0, T, N_t, retstep=True)
-    
+
     # evaluate the boundary condition functions along t
     H_a = h_a(t)
     C_a = c_a(t)
@@ -198,10 +199,10 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
 
     K1 = delt / 4 / delx
     K2 = delt / 2 / delx / delx
-    
+
     # temporal iteration
     Us = [f_x0]
-    
+
     for j in range(1, N_t):
         result, converged, _ = newton(conditions,
                                       Us[-1],
@@ -217,7 +218,7 @@ def burgers_equation(a, b, T, N_x, N_t, u_0, c_a, d_a, h_a, c_b, d_b, h_b):
         # Us.append(fsolve(conditions,
         #                  Us[-1],
         #                  args=(Us[-1], K1, K2, h, H_a[j], C_a[j], D_a[j], H_b[j], C_b[j], D_b[j])))
-    
+
     return np.array(Us)
 
 

@@ -1,6 +1,7 @@
-# Estimation of the solution to the Black-Scholes equation using the Euler-Maruyama method.
-# Code written by Kyle Roth.
-# 2018-12-17
+"""Estimation of the solution to the Black-Scholes equation using the Euler-Maruyama method. Code written by Kyle Roth.
+
+2018-12-17
+"""
 
 
 import numpy as np
@@ -13,7 +14,7 @@ def euler_maruyama(t, x_0, drift, volatility):
     essentially a simple finite difference method.
 
     Drift and volatility are assumed to return values for mu and sigma over the time steps in t.
-    
+
     Parameters:
         t (ndarray): set of time steps to estimate at
         x_0 (float): initial value of the equation
@@ -22,7 +23,7 @@ def euler_maruyama(t, x_0, drift, volatility):
     """
     del_t = t[1:] - t[:-1]
     del_wt = np.random.normal(scale=np.sqrt(del_t))
-    
+
     # scale drift and volatility to the time step
     del_x = drift(del_t) * del_t + volatility(del_t) * del_wt
 
@@ -51,11 +52,11 @@ class Sampler(object):
     def __init__(self, samples):
         """Take in the samples to be sampled from."""
         self.samples = samples
-    
+
     def sample(self, shaper=1):
         """Sample from the provided samples, in the shape of the given array if present."""
         return np.random.choice(self.samples, size=np.shape(shaper))
-    
+
     def __call__(self, shaper=1):
         """Allow a sampler object to be callable."""
         return self.sample(shaper=shaper)
@@ -63,7 +64,7 @@ class Sampler(object):
 
 def estimate_value(data, final_t, samples=1):
     """Using data for the value in the past, estimate the value of the stock after `final_t` more time has passed.
-    
+
     Run `samples` times and return all the values.
     """
     # use the overall mu_hat and sigma_hat
@@ -85,12 +86,12 @@ def test_black_scholes():
     """
     data = np.array(read_csv('./stock_prices.txt', index_col=0, header=None)).reshape(-1)
     N = len(data)
-    
+
     # parameter estimation
     mus, sigmas = estimate_mu_sigma(data, single_vals=False)  # get a sample distribution of mus and sigmas
     mu_sampler = Sampler(mus)
     sigma_sampler = Sampler(sigmas)
-    
+
     estimate_days = 262  # number of days into the future
     detailed_estimates = 5  # number of fully-drawn samples to generate
     final_estimates = 1000  # number of final estimates to produce
@@ -103,17 +104,17 @@ def test_black_scholes():
                  euler_maruyama(t, data[-1], mu_sampler, sigma_sampler),
                  label='estimation {}'.format(i),
                  alpha=0.5)
-    
+
     # plot final estimates
     estimates = estimate_value(data, estimate_days, samples=final_estimates)
     print('mean of projections:', estimates.mean())
     print('variance of projections:', estimates.var())
     plt.scatter(np.ones_like(estimates) * (N + estimate_days), estimates, label='estimates', alpha=0.1, c='black')
-    
+
     # add source info
     alignment = {'horizontalalignment': 'center', 'verticalalignment': 'baseline'}
     plt.text(0.6, 0.02, 'github.com/kylrth/finite-difference', fontsize=7, **alignment, transform=plt.gca().transAxes)
-    
+
     plt.xlabel('Days')
     plt.ylabel('Value')
     plt.title('Projected value of ACME stock (fictional)')
